@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://songsketch-anykey.sociobot.in/sitemap.xml

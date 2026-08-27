@@ -36,11 +36,12 @@ clinical.
 
 ## Type and rhythm
 
-- Display/UI: `"Pixel Grid"`, an original self-hosted subset generated from a
-  local bitmap alphabet for the wordmark and compact control labels. Where the
-  font file is unavailable, the browser uses `ui-monospace`.
-- Reading and inputs: system `ui-sans-serif` stack for excellent legibility and
-  no network dependency.
+- Display/UI: the device's `ui-monospace`/Consolas stack, set in compact caps
+  with tracked spacing so labels read like a tracker display without requiring
+  a font download.
+- Reading and inputs: the device's `ui-sans-serif` system stack for excellent
+  legibility and zero network or font payload. This system/mono pairing is
+  intentionally self-contained rather than remotely hosted.
 - Type scale: 12 / 14 / 16 / 20 / 28 / clamp(36–64) px. Body never drops below
   16 px; 12–14 px is reserved for short labels and coordinates.
 - Spacing uses a 4 px base with 8, 12, 16, 24, 32, 48, and 64 px steps.
