@@ -57,5 +57,9 @@ billing settings were changed in this repository.
 
 ## Known gaps
 
-None. Lighthouse’s static preview server does not itself interpret `_headers`;
-the deployed Standard static host must apply that emitted header manifest.
+The repaired commit `6b5f183` is pushed to `main` for Standard-static release.
+At the final live check (2026-08-27 21:49 UTC), the public endpoint was still
+serving the prior worker (`max-age=30`) and did not yet expose the new versioned
+hero asset. The repository artifact is complete and buildable; the external
+static release needs to finish before live header/artifact verification can be
+repeated. Lighthouse’s local preview does not itself interpret `_headers`.
