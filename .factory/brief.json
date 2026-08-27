@@ -1,0 +1,9 @@
+{
+  "slug": "songsketch-anykey",
+  "title": "SongSketch AnyKey",
+  "artifact_class": "pwa-offline",
+  "user": "A young or returning browser-based songwriter who wants to sketch an any-length melody and drums without being locked to a scale or installing a DAW.",
+  "smallest_useful_product": "PWA with drum grid, free-pitch piano roll, one editable pitch curve, loop/export MIDI and a self-contained HTML share file.",
+  "monetization": "free",
+  "constraints": "All audio stays local. No copyrighted samples; synthesize original drum sounds with Web Audio."
+}
