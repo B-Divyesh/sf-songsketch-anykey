@@ -25,8 +25,8 @@ app.innerHTML = `
         <a class="button primary" id="start-sketch" href="#composer">Start a 16-bar sketch <span aria-hidden="true">↓</span></a>
       </div>
       <picture>
-        <source media="(max-width: 700px)" srcset="/assets/constellation-console-720.webp" />
-        <img src="/assets/constellation-console.webp" width="960" height="640" alt="Pixel-art workstation with lime melody blocks, coral drum hits, and a cyan pitch ribbon orbiting through space" fetchpriority="high" />
+        <source media="(max-width: 700px)" srcset="/assets/constellation-console-720-c5a21393.webp" />
+        <img src="/assets/constellation-console-243548d5.webp" width="960" height="640" alt="Pixel-art workstation with lime melody blocks, coral drum hits, and a cyan pitch ribbon orbiting through space" fetchpriority="high" />
       </picture>
     </section>
 
@@ -112,7 +112,7 @@ app.innerHTML = `
   <footer><p>SongSketch AnyKey · a tiny local instrument</p><nav aria-label="Legal"><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><a href="https://github.com/B-Divyesh/sf-songsketch-anykey">Source</a></nav><p class="art-note">Original generated pixel artwork · no tracking</p></footer>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <dialog id="clear-dialog"><form method="dialog"><p class="eyebrow">CLEAR PROJECT?</p><h2>Erase this sketch?</h2><p>This removes every note and drum hit. You can undo it until you close the page.</p><div class="dialog-actions"><button class="button" value="cancel">Keep sketch</button><button class="button danger-solid" value="confirm">Erase sketch</button></div></form></dialog>
-  <div class="update-toast" id="update-toast" role="status"><span>A fresh offline version is ready.</span><button class="button" id="update-app">Update now</button></div>
+  <div class="update-toast" id="update-toast" role="status" aria-live="polite"><span>A fresh offline version is ready.</span><button class="button" id="update-app">Update now</button></div>
 `;
 
 const CELL_W = 28;

@@ -20,7 +20,6 @@
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 body { margin: 0; min-width: 320px; min-height: 100vh; background: var(--ink-0); font-size: 16px; line-height: 1.5; overflow-x: hidden; }
-body::before { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 10; opacity: .06; background: repeating-linear-gradient(0deg, transparent 0 3px, #fff 4px); }
 button, input, select { font: inherit; }
 button, a, input, select, canvas { -webkit-tap-highlight-color: transparent; }
 button, a, input, select, [tabindex]:focus-visible { outline: 3px solid var(--cyan); outline-offset: 3px; }
@@ -61,7 +60,7 @@ main { display: block; }
 .button.quiet { border-color: transparent; background: transparent; box-shadow: none; color: var(--muted); }
 .button.danger { color: #ffaaa4; }.danger-solid { background: var(--coral); color: var(--ink-0); border-color: var(--coral); }
 
-.composer { border-top: 1px solid #303b5b; border-bottom: 1px solid #303b5b; max-width: 1440px; margin: auto; background: #0c0f1e; box-shadow: 0 0 0 1px #080a12, 12px 12px 0 #05060c; }
+.composer { border-top: 1px solid #303b5b; border-bottom: 1px solid #303b5b; max-width: 1440px; margin: auto; background: #0c0f1e; box-shadow: 0 0 0 1px #080a12, 12px 12px 0 #05060c; content-visibility: auto; contain-intrinsic-size: auto 2100px; }
 .section-heading { padding: 30px 32px; display: flex; align-items: end; justify-content: space-between; gap: 24px; border-bottom: 1px solid #303b5b; }
 .section-heading .eyebrow { color: var(--cyan); margin-bottom: 8px; }
 .save-state { color: var(--success); text-align: right; }
@@ -101,6 +100,7 @@ input:hover, select:hover { border-color: #6c7899; }
 
 .drum-scroll { overflow-x: auto; border: 2px solid #3c4869; scrollbar-color: var(--coral) var(--ink-1); }
 .drum-grid { min-width: max-content; background: #0d1121; padding-bottom: 10px; }
+.drum-loading { width: min(100vw - 36px, 680px); min-height: 96px; display: grid; place-items: center; padding: 20px; color: var(--muted); font: 700 12px ui-monospace, monospace; letter-spacing: .06em; text-transform: uppercase; }
 .drum-ruler, .drum-row { display: grid; grid-template-columns: 112px auto; }
 .drum-ruler { height: 34px; background: var(--ink-1); border-bottom: 1px solid #3c4869; }
 .drum-ruler > span { border-right: 1px solid #3c4869; }.drum-ruler > div { position: relative; height: 34px; }
