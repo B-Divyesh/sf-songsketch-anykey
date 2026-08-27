@@ -1,6 +1,6 @@
 const VERSION = 'songsketch-shell-v2';
 const ASSET_CACHE = 'songsketch-assets-v2';
-const CORE = ['/', '/offline.html', '/manifest.webmanifest', '/icons/icon.svg', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/icon-maskable-512.png', '/assets/constellation-console-243548d5.webp', '/assets/constellation-console-720-c5a21393.webp'];
+const CORE = ['/', '/offline.html', '/offline.css', '/manifest.webmanifest', '/icons/icon.svg', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/icon-maskable-512.png', '/assets/constellation-console-243548d5.webp', '/assets/constellation-console-720-c5a21393.webp'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {

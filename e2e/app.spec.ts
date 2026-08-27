@@ -54,13 +54,62 @@ test('normalizes invalid bar counts so the visible input matches the project gri
   await bars.fill('0');
   await bars.blur();
   await expect(bars).toHaveValue('1');
-  await expect(page.locator('#drum-grid')).toHaveCSS('--steps', '16');
+  await expect(page.locator('.drum-step')).toHaveCount(64);
   await expect(page.locator('#toast')).toContainText('Bars must be from 1 to 64. Using 1.');
 
   await bars.fill('65');
   await bars.blur();
   await expect(bars).toHaveValue('64');
-  await expect(page.locator('#drum-grid')).toHaveCSS('--steps', '1024');
+  await expect(page.locator('.drum-step')).toHaveCount(4096);
+});
+
+test('keeps every composer layout rule CSP-safe and adjacent drum pads independently clickable', async ({ page }) => {
+  const consoleErrors: string[] = [];
+  const headers = JSON.parse(readFileSync(join(process.cwd(), 'public', 'staticwebapp.config.json'), 'utf8')).globalHeaders as Record<string, string>;
+  const csp = headers['Content-Security-Policy'];
+  expect(csp).toContain("style-src 'self'");
+  page.on('console', (message) => { if (message.type() === 'error') consoleErrors.push(message.text()); });
+  await page.route('**/*', async (route) => {
+    if (!route.request().isNavigationRequest()) return route.continue();
+    const response = await route.fetch();
+    await route.fulfill({
+      response,
+      headers: {
+        ...response.headers(),
+        'content-security-policy': csp,
+      },
+    });
+  });
+  await page.goto('/');
+  await openComposer(page);
+
+  const adjacentPads = page.locator('.drum-step[data-row="0"][data-step="0"], .drum-step[data-row="0"][data-step="1"]');
+  await expect(adjacentPads).toHaveCount(2);
+  const positions = await adjacentPads.evaluateAll((pads) => pads.map((pad) => Math.round(pad.getBoundingClientRect().x)));
+  expect(positions[1]).toBeGreaterThan(positions[0]!);
+  expect(positions[1]! - positions[0]!).toBe(44);
+  await page.getByRole('button', { name: /Kick, bar 1, step 1, off$/ }).click();
+  await expect(page.getByRole('button', { name: /Kick, bar 1, step 1, on$/ })).toBeVisible();
+  await expect(page.locator('#app [style]')).toHaveCount(0);
+  expect(consoleErrors.filter((message) => /content security policy|inline style/i.test(message))).toEqual([]);
+});
+
+test('loads privacy, terms, and the offline fallback with the deployment CSP', async ({ page }) => {
+  const consoleErrors: string[] = [];
+  const headers = JSON.parse(readFileSync(join(process.cwd(), 'public', 'staticwebapp.config.json'), 'utf8')).globalHeaders as Record<string, string>;
+  page.on('console', (message) => { if (message.type() === 'error') consoleErrors.push(message.text()); });
+  await page.route('**/*', async (route) => {
+    if (!route.request().isNavigationRequest()) return route.continue();
+    const response = await route.fetch();
+    await route.fulfill({ response, headers: { ...response.headers(), 'content-security-policy': headers['Content-Security-Policy'] } });
+  });
+  await page.goto('/privacy/');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Privacy');
+  await page.goto('/terms/');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Terms');
+  await page.goto('/offline.html');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('The network went quiet.');
+  expect(consoleErrors.filter((message) => /content security policy|inline style/i.test(message))).toEqual([]);
 });
 
 test('shows the update toast when a changed worker is waiting', async ({ page }) => {

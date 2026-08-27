@@ -118,9 +118,6 @@ app.innerHTML = `
 const CELL_W = 28;
 const ROW_H = 24;
 const ROWS = MAX_PITCH - MIN_PITCH + 1;
-const DRUM_CELL_W = 44;
-const DRUM_LABEL_W = 112;
-const DRUM_STEPS_PER_WINDOW = 32;
 const engine = new AudioEngine();
 let project = createProject();
 let selectedId: string | null = null;
@@ -130,8 +127,6 @@ let playhead = -1;
 let undoState: Project | null = null;
 let saveTimer = 0;
 let pointerAction: { type: 'draw' | 'move' | 'resize'; note: Note; originStep: number; originPitch: number; original: Note } | null = null;
-let renderedDrumWindow = '';
-let drumRenderFrame = 0;
 
 const $ = <T extends HTMLElement>(selector: string) => document.querySelector<T>(selector)!;
 const roll = $('#roll') as HTMLCanvasElement;
@@ -179,8 +174,7 @@ function updateFields(): void {
 function resizeCanvases(): void {
   const width = totalSteps(project) * CELL_W;
   roll.width = width; roll.height = ROWS * ROW_H;
-  roll.style.width = `${width}px`; roll.style.height = `${ROWS * ROW_H}px`;
-  ruler.width = width; ruler.height = 32; ruler.style.width = `${width}px`;
+  ruler.width = width; ruler.height = 32;
   pitchCanvas.width = Math.max(640, Math.min(width, 4096)); pitchCanvas.height = 140;
   const keys = $('#keys');
   keys.innerHTML = Array.from({ length: ROWS }, (_, row) => {
@@ -274,34 +268,12 @@ function drawPitch(): void {
   pitchCanvas.setAttribute('aria-label', `Pitch curve editor for ${pitchName(note.pitch)}, ${note.curve.length} points, range plus or minus 2 semitones.`);
 }
 
-function drumWindow(): { start: number; end: number } {
-  const scroll = $('#drum-scroll');
-  const visibleStart = Math.floor(scroll.scrollLeft / DRUM_CELL_W);
-  const visibleEnd = Math.ceil((scroll.scrollLeft + scroll.clientWidth) / DRUM_CELL_W);
-  return {
-    start: Math.max(0, visibleStart - DRUM_STEPS_PER_WINDOW),
-    end: Math.min(totalSteps(project), visibleEnd + DRUM_STEPS_PER_WINDOW),
-  };
-}
-
-function renderDrums(force = false): void {
+function renderDrums(): void {
   const container = $('#drum-grid');
-  const { start, end } = drumWindow();
-  const windowKey = `${project.bars}:${start}:${end}:${playhead}`;
-  if (!force && renderedDrumWindow === windowKey) return;
-  renderedDrumWindow = windowKey;
-  container.style.setProperty('--steps', String(totalSteps(project)));
-  container.style.width = `${DRUM_LABEL_W + totalSteps(project) * DRUM_CELL_W}px`;
-  const firstBar = Math.floor(start / STEPS_PER_BAR);
-  const lastBar = Math.ceil(end / STEPS_PER_BAR);
-  const ruler = Array.from({ length: lastBar - firstBar }, (_, offset) => {
-    const bar = firstBar + offset;
-    return `<span style="left:${bar * STEPS_PER_BAR * DRUM_CELL_W}px">BAR ${bar + 1}</span>`;
-  }).join('');
+  const ruler = Array.from({ length: project.bars }, (_, index) => `<span>BAR ${index + 1}</span>`).join('');
   const labels = project.drums.map((row, rowIndex) => {
-    const steps = row.slice(start, end).map((active, offset) => {
-      const step = start + offset;
-      return `<button class="drum-step${step % 4 === 0 ? ' beat-start' : ''}${active ? ' active' : ''}${step === playhead ? ' playing' : ''}" style="left:${step * DRUM_CELL_W}px" data-row="${rowIndex}" data-step="${step}" aria-label="${DRUM_NAMES[rowIndex]}, bar ${Math.floor(step / 16) + 1}, step ${step % 16 + 1}${active ? ', on' : ', off'}" aria-pressed="${active}"><span aria-hidden="true"></span></button>`;
+    const steps = row.map((active, step) => {
+      return `<button class="drum-step${step % 4 === 0 ? ' beat-start' : ''}${active ? ' active' : ''}${step === playhead ? ' playing' : ''}" data-row="${rowIndex}" data-step="${step}" aria-label="${DRUM_NAMES[rowIndex]}, bar ${Math.floor(step / 16) + 1}, step ${step % 16 + 1}${active ? ', on' : ', off'}" aria-pressed="${active}"><span aria-hidden="true"></span></button>`;
     }).join('');
     return `<div class="drum-row"><span class="drum-label"><b>${DRUM_NAMES[rowIndex]}</b><small>${rowIndex === 0 ? 'LOW' : rowIndex === 1 ? 'SNAP' : rowIndex === 2 ? 'TICK' : 'AIR'}</small></span><div class="drum-steps">${steps}</div></div>`;
   }).join('');
@@ -396,13 +368,8 @@ pitchCanvas.addEventListener('keydown', (event) => {
 $('#drum-grid').addEventListener('click', (event) => {
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>('.drum-step'); if (!button) return;
   remember(); const row = Number(button.dataset.row); const step = Number(button.dataset.step);
-  project.drums[row]![step] = !project.drums[row]![step]; renderedDrumWindow = ''; renderDrums(); changed();
+  project.drums[row]![step] = !project.drums[row]![step]; renderDrums(); changed();
 });
-
-$('#drum-scroll').addEventListener('scroll', () => {
-  if (drumRenderFrame) return;
-  drumRenderFrame = requestAnimationFrame(() => { drumRenderFrame = 0; renderDrums(); });
-}, { passive: true });
 
 engine.onStep = (step) => {
   const previous = playhead;
@@ -432,7 +399,7 @@ barsInput.addEventListener('change', () => {
   const next = normalizeBars(entered, project.bars);
   const wasNormalized = !Number.isFinite(entered) || entered !== next;
   if (next < project.bars && project.notes.some((note) => note.start >= next * 16) && !confirm(`Shorten to ${next} bars? Notes after bar ${next} will be removed.`)) { barsInput.value = String(project.bars); barsInput.setCustomValidity(''); barsInput.removeAttribute('aria-invalid'); return; }
-  remember(); project = resizeProject(project, next); selectedId = null; barsInput.value = String(project.bars); barsInput.setCustomValidity(''); barsInput.removeAttribute('aria-invalid'); renderedDrumWindow = ''; resizeCanvases(); changed();
+  remember(); project = resizeProject(project, next); selectedId = null; barsInput.value = String(project.bars); barsInput.setCustomValidity(''); barsInput.removeAttribute('aria-invalid'); resizeCanvases(); changed();
   if (wasNormalized) announce(`Bars must be from 1 to 64. Using ${project.bars}.`);
 });
 

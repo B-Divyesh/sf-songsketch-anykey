@@ -1,93 +1,54 @@
-# SongSketch AnyKey — verification handoff
+# SongSketch AnyKey — repair handoff
 
-## Verdict: FAIL
+## Repair scope
 
-Independent verification of candidate
-`abd394a6f5cbf0bdda11cad6a6c375e8595cdf77` against
-<https://songsketch-anykey.sociobot.in/> on 2026-08-27 found a High-severity
-release blocker. The live deployment is byte-for-byte the candidate build, but
-its `style-src 'self'` CSP blocks runtime inline styles used by the composer.
-Opening the live composer generated 264 CSP console errors and left adjacent
-drum pads stacked at the same screen coordinate, making the core drum grid not
-reliably clickable. This violates the no-console-error quality gate and the
-brief's drum-grid requirement.
-
-The candidate must not be accepted until the CSP/style implementation is
-compatible and a fresh live browser check confirms separately positioned,
-clickable drum controls with no CSP console errors. Full evidence, including
-passing local checks and live byte/header identity, is in
+Repaired the High-severity CSP release blocker reported for candidate
+`abd394a6f5cbf0bdda11cad6a6c375e8595cdf77` in
 `.factory/verification-2.md`.
 
-## Earlier builder repair notes
+- The drum sequencer no longer writes inline `left`, `width`, or CSS custom
+  property values. It uses fixed 44 px flex cells and stylesheet-owned ruler
+  geometry, so each pad keeps its own physical hit target under
+  `style-src 'self'`.
+- Canvas sizing now relies on their intrinsic width/height attributes instead
+  of runtime style mutation.
+- Privacy, terms, and offline pages now use self-hosted external stylesheets;
+  the offline stylesheet is in the service-worker precache. This keeps every
+  shipped document compatible with the strict global CSP.
+- Added exact Playwright regressions that load the app with the CSP from
+  `public/staticwebapp.config.json`, assert no CSP console errors or app inline
+  styles, assert adjacent Kick pads are 44 px apart and clickable, and load the
+  legal/offline pages under the same policy.
 
-- Fixed service-worker update detection by retaining the newly installing
-  worker through its state change. A waiting worker now displays the in-app
-  **Update now** toast and activates via `SKIP_WAITING`.
-- Normalized Bars consistently to 1–64 in both the UI and import model. Invalid
-  typed values are visibly marked while editing, then reset to the applied
-  value on blur/change with an announced explanation. Imported pitch curves are
-  also constrained to the advertised ±2-semitone range.
-- Made mobile startup repeatably fast: the canvas/grid composer initializes
-  when the writer starts a sketch or scrolls into it; drum controls are
-  windowed to the horizontal viewport instead of rebuilding all bars; and the
-  piano-roll grid uses batched canvas paths. The full composer remains local,
-  keyboard/touch operable, exportable, and offline-capable after initialization.
-- Added versioned hero asset names plus Standard-static cache and security
-  configuration. `assets/*` receives `Cache-Control: public, max-age=31536000,
-  immutable`; HTML and `sw.js` are revalidated, and the emitted configuration
-  supplies CSP, Permissions-Policy, nosniff, and frame protections.
+## Local verification
 
-## Regression coverage
-
-- Unit tests cover an already-waiting and a newly-waiting service worker,
-  0/65 imported bar counts, and imported pitch-curve clipping.
-- Mobile Playwright covers the actual changed-worker update-toast path, invalid
-  Bars UI/model agreement, local persistence, MIDI/HTML export, accessibility,
-  and a controlled-page offline edit after service-worker installation.
-
-## Earlier local verification
-
-Executed in a clean `npm ci` checkout:
+Ran from a clean `npm ci` install on 2026-08-27:
 
 ```sh
 npm test          # 7 passed
 npm run build     # passed; dist/ emitted
-npm run test:e2e  # 5 passed (mobile Chromium)
+npm run test:e2e  # 14 passed: desktop 1440x1000 and mobile 390x844
 ```
 
-Two fresh production-preview mobile Lighthouse runs (simulated throttling)
-both passed the requested floor:
+The browser suite covers keyboard melody/drum operation, persistence, MIDI and
+self-contained HTML export, invalid-bar recovery, strict-CSP rendering,
+desktop/mobile axe WCAG 2 A/AA serious/critical checks, service-worker update
+toast, and offline reload/editing after installation. The strict-CSP regression
+specifically verifies that the first two Kick buttons have distinct 44 px
+bounding-box positions and remain independently clickable with zero CSP errors.
 
-| Run | Performance | Accessibility | LCP | TBT | CLS |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| 1 | 99 | 100 | 2.05 s | 0 ms | 0 |
-| 2 | 99 | 100 | 2.04 s | 0 ms | 0 |
+A production-preview mobile Lighthouse run passed: Performance **100**,
+Accessibility **100**, LCP **1.6 s**, TBT **30 ms**, CLS **0**. Production
+initial JS is 30.81 KB (11.51 KB gzip) and CSS is 13.50 KB (3.88 KB gzip).
 
-The production JS is 31.46 KB (11.77 KB gzip), well inside the 200 KB budget.
-`dist/_headers` and `dist/staticwebapp.config.json` were confirmed present;
-the latter was checked for immutable assets and non-cacheable `sw.js`.
+## Deployment and live evidence
 
-## Deployment guidance from the builder
+Deploy `dist/` as the existing Azure Static Web App (`sf-songsketch-anykey`),
+preserving `staticwebapp.config.json` and `_headers`. The exact post-deploy
+header, live identity, desktop/mobile CSP-console, and offline checks are
+recorded after the deployment completes.
 
-Deploy `dist/` as **Standard static**, preserving both header manifests.
-`sw.js` must remain root-served and non-immutable. No infrastructure, DNS, or
-billing settings were changed in this repository.
+## Known gaps
 
-## Current known gap / next step
-
-The deployment has since completed and does serve the candidate (including
-long-lived immutable assets, `no-store` worker, and security headers). The
-active failure is the CSP conflict described in the verdict. Re-run after a
-repair:
-
-```sh
-npm ci
-npm test
-npm run build
-npx playwright install chromium
-npm run test:e2e
-```
-
-Then exercise the live composer with console capture, inspect adjacent
-`.drum-step` bounding boxes, and repeat offline reload plus update-toast checks
-before recording PASS.
+None identified locally. No user data leaves the browser; no analytics,
+third-party fonts, samples, or runtime CDN dependencies were added.

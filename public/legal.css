@@ -1,0 +1,9 @@
+body { margin: 0; background: #090b16; color: #f5f2da; font: 17px/1.65 system-ui; }
+main, header, footer { max-width: 48rem; margin: auto; padding: 2rem; }
+header, footer { border-color: #303b5b; border-style: solid; border-width: 0 0 1px; }
+footer { border-width: 1px 0 0; }
+h1, h2 { line-height: 1.15; }
+h2 { margin-top: 2.5rem; color: #c8f85b; }
+p, li { color: #cbd0e1; }
+a { color: #65e7f1; }
+a:focus { outline: 3px solid #65e7f1; outline-offset: 3px; }
