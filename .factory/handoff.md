@@ -1,6 +1,24 @@
-# SongSketch AnyKey — repair handoff
+# SongSketch AnyKey — verification handoff
 
-## What changed
+## Verdict: FAIL
+
+Independent verification of candidate
+`abd394a6f5cbf0bdda11cad6a6c375e8595cdf77` against
+<https://songsketch-anykey.sociobot.in/> on 2026-08-27 found a High-severity
+release blocker. The live deployment is byte-for-byte the candidate build, but
+its `style-src 'self'` CSP blocks runtime inline styles used by the composer.
+Opening the live composer generated 264 CSP console errors and left adjacent
+drum pads stacked at the same screen coordinate, making the core drum grid not
+reliably clickable. This violates the no-console-error quality gate and the
+brief's drum-grid requirement.
+
+The candidate must not be accepted until the CSP/style implementation is
+compatible and a fresh live browser check confirms separately positioned,
+clickable drum controls with no CSP console errors. Full evidence, including
+passing local checks and live byte/header identity, is in
+`.factory/verification-2.md`.
+
+## Earlier builder repair notes
 
 - Fixed service-worker update detection by retaining the newly installing
   worker through its state change. A waiting worker now displays the in-app
@@ -27,7 +45,7 @@
   Bars UI/model agreement, local persistence, MIDI/HTML export, accessibility,
   and a controlled-page offline edit after service-worker installation.
 
-## Verification
+## Earlier local verification
 
 Executed in a clean `npm ci` checkout:
 
@@ -49,17 +67,27 @@ The production JS is 31.46 KB (11.77 KB gzip), well inside the 200 KB budget.
 `dist/_headers` and `dist/staticwebapp.config.json` were confirmed present;
 the latter was checked for immutable assets and non-cacheable `sw.js`.
 
-## Deployment
+## Deployment guidance from the builder
 
 Deploy `dist/` as **Standard static**, preserving both header manifests.
 `sw.js` must remain root-served and non-immutable. No infrastructure, DNS, or
 billing settings were changed in this repository.
 
-## Known gaps
+## Current known gap / next step
 
-The repaired commit `6b5f183` is pushed to `main` for Standard-static release.
-At the final live check (2026-08-27 21:49 UTC), the public endpoint was still
-serving the prior worker (`max-age=30`) and did not yet expose the new versioned
-hero asset. The repository artifact is complete and buildable; the external
-static release needs to finish before live header/artifact verification can be
-repeated. Lighthouse’s local preview does not itself interpret `_headers`.
+The deployment has since completed and does serve the candidate (including
+long-lived immutable assets, `no-store` worker, and security headers). The
+active failure is the CSP conflict described in the verdict. Re-run after a
+repair:
+
+```sh
+npm ci
+npm test
+npm run build
+npx playwright install chromium
+npm run test:e2e
+```
+
+Then exercise the live composer with console capture, inspect adjacent
+`.drum-step` bounding boxes, and repeat offline reload plus update-toast checks
+before recording PASS.
