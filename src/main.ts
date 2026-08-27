@@ -356,7 +356,10 @@ $('#drum-grid').addEventListener('click', (event) => {
 });
 
 engine.onStep = (step) => {
-  playhead = step; drawRuler(); drawRoll(); renderDrums();
+  const previous = playhead;
+  playhead = step; drawRuler(); drawRoll();
+  if (previous >= 0) document.querySelectorAll(`.drum-step[data-step="${previous}"]`).forEach((cell) => cell.classList.remove('playing'));
+  if (step >= 0) document.querySelectorAll(`.drum-step[data-step="${step}"]`).forEach((cell) => cell.classList.add('playing'));
   if (step >= 0) $('#position').textContent = `BAR ${String(Math.floor(step / 16) + 1).padStart(2, '0')} · STEP ${String(step % 16 + 1).padStart(2, '0')}`;
   else $('#position').textContent = 'BAR 01 · STEP 01';
 };
@@ -420,14 +423,14 @@ async function initialize(): Promise<void> {
 void initialize();
 
 if ('serviceWorker' in navigator) {
-  let refreshing = false;
-  navigator.serviceWorker.addEventListener('controllerchange', () => { if (!refreshing) { refreshing = true; location.reload(); } });
+  let updateRequested = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (updateRequested) location.reload(); });
   window.addEventListener('load', async () => {
     try {
       const registration = await navigator.serviceWorker.register('/sw.js');
       const showUpdate = (worker: ServiceWorker) => {
         $('#update-toast').classList.add('visible');
-        $('#update-app').onclick = () => worker.postMessage({ type: 'SKIP_WAITING' });
+        $('#update-app').onclick = () => { updateRequested = true; worker.postMessage({ type: 'SKIP_WAITING' }); };
       };
       if (registration.waiting) showUpdate(registration.waiting);
       registration.addEventListener('updatefound', () => registration.installing?.addEventListener('statechange', () => {
