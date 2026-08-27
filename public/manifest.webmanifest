@@ -1,0 +1,21 @@
+{
+  "id": "/?source=installed",
+  "name": "SongSketch AnyKey",
+  "short_name": "SongSketch",
+  "description": "A private, offline melody and drum sketchpad with unrestricted pitch.",
+  "start_url": "/?v=1",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#090b16",
+  "theme_color": "#090b16",
+  "categories": ["music", "productivity", "education"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Open sketch", "short_name": "Sketch", "url": "/?v=1#composer", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}
