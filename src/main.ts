@@ -3,10 +3,11 @@ import { AudioEngine } from './audio';
 import { createMidi } from './midi';
 import {
   DRUM_NAMES, MAX_PITCH, MIN_PITCH, STEPS_PER_BAR, clamp, createProject, makeId,
-  normalizeProject, noteAt, pitchName, resizeProject, totalSteps, type Note, type Project,
+  normalizeBars, normalizeProject, noteAt, pitchName, resizeProject, totalSteps, type Note, type Project,
 } from './project';
 import { createShareHtml, download, safeFilename } from './share';
 import { loadProject, saveProject } from './storage';
+import { watchForServiceWorkerUpdate } from './service-worker';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 
@@ -21,7 +22,7 @@ app.innerHTML = `
         <p class="eyebrow">NO SCALE LOCK · NO INSTALL · YOUR FILES</p>
         <h1 id="page-title">Catch the tune<br><em>before it gets away.</em></h1>
         <p>Draw any note. Bend its pitch. Tap in drums. SongSketch is a small, private music notebook that keeps playing when the internet disappears.</p>
-        <a class="button primary" href="#composer">Start a 16-bar sketch <span aria-hidden="true">↓</span></a>
+        <a class="button primary" id="start-sketch" href="#composer">Start a 16-bar sketch <span aria-hidden="true">↓</span></a>
       </div>
       <picture>
         <source media="(max-width: 700px)" srcset="/assets/constellation-console-720.webp" />
@@ -29,7 +30,7 @@ app.innerHTML = `
       </picture>
     </section>
 
-    <section class="composer" id="composer" aria-labelledby="composer-title">
+    <section class="composer" id="composer" aria-labelledby="composer-title" aria-busy="true" inert>
       <div class="section-heading">
         <div><p class="eyebrow">LOCAL PROJECT / AUTO-SAVED</p><h2 id="composer-title">Your sketch</h2></div>
         <p class="save-state" id="save-state" role="status">Loading this device…</p>
@@ -88,7 +89,7 @@ app.innerHTML = `
           <div><span class="track-number">02</span><h2 id="drums-heading">Drums</h2><span class="track-tag drum-tag">SYNTH KIT</span></div>
           <p>Tap squares to build a beat. Sounds are synthesized here—no samples or downloads.</p>
         </div>
-        <div class="drum-scroll"><div class="drum-grid" id="drum-grid" role="group" aria-label="Drum sequencer"></div></div>
+        <div class="drum-scroll" id="drum-scroll"><div class="drum-grid" id="drum-grid" role="group" aria-label="Drum sequencer"></div></div>
       </section>
 
       <section class="export-section" aria-labelledby="export-heading">
@@ -117,6 +118,9 @@ app.innerHTML = `
 const CELL_W = 28;
 const ROW_H = 24;
 const ROWS = MAX_PITCH - MIN_PITCH + 1;
+const DRUM_CELL_W = 44;
+const DRUM_LABEL_W = 112;
+const DRUM_STEPS_PER_WINDOW = 32;
 const engine = new AudioEngine();
 let project = createProject();
 let selectedId: string | null = null;
@@ -126,6 +130,8 @@ let playhead = -1;
 let undoState: Project | null = null;
 let saveTimer = 0;
 let pointerAction: { type: 'draw' | 'move' | 'resize'; note: Note; originStep: number; originPitch: number; original: Note } | null = null;
+let renderedDrumWindow = '';
+let drumRenderFrame = 0;
 
 const $ = <T extends HTMLElement>(selector: string) => document.querySelector<T>(selector)!;
 const roll = $('#roll') as HTMLCanvasElement;
@@ -208,14 +214,25 @@ function drawRoll(): void {
     context.fillStyle = [1, 3, 6, 8, 10].includes(midi % 12) ? '#0d1121' : '#11162a';
     context.fillRect(0, row * ROW_H, roll.width, ROW_H);
   }
-  context.strokeStyle = '#222c49'; context.lineWidth = 1;
-  for (let step = 0; step <= totalSteps(project); step += 1) {
-    context.strokeStyle = step % STEPS_PER_BAR === 0 ? '#526080' : step % 4 === 0 ? '#303b5b' : '#1b2440';
-    context.beginPath(); context.moveTo(step * CELL_W + 0.5, 0); context.lineTo(step * CELL_W + 0.5, roll.height); context.stroke();
-  }
+  context.lineWidth = 1;
+  const verticalGrid = (color: string, matches: (step: number) => boolean) => {
+    context.strokeStyle = color; context.beginPath();
+    for (let step = 0; step <= totalSteps(project); step += 1) {
+      if (!matches(step)) continue;
+      const x = step * CELL_W + .5;
+      context.moveTo(x, 0); context.lineTo(x, roll.height);
+    }
+    context.stroke();
+  };
+  verticalGrid('#526080', (step) => step % STEPS_PER_BAR === 0);
+  verticalGrid('#303b5b', (step) => step % STEPS_PER_BAR !== 0 && step % 4 === 0);
+  verticalGrid('#1b2440', (step) => step % 4 !== 0);
+  context.strokeStyle = '#1b2440'; context.beginPath();
   for (let row = 0; row <= ROWS; row += 1) {
-    context.strokeStyle = '#1b2440'; context.beginPath(); context.moveTo(0, row * ROW_H + 0.5); context.lineTo(roll.width, row * ROW_H + 0.5); context.stroke();
+    const y = row * ROW_H + .5;
+    context.moveTo(0, y); context.lineTo(roll.width, y);
   }
+  context.stroke();
   if (playhead >= 0) {
     context.fillStyle = 'rgba(101,231,241,.14)'; context.fillRect(playhead * CELL_W, 0, CELL_W, roll.height);
     context.fillStyle = '#65e7f1'; context.fillRect(playhead * CELL_W, 0, 2, roll.height);
@@ -257,15 +274,42 @@ function drawPitch(): void {
   pitchCanvas.setAttribute('aria-label', `Pitch curve editor for ${pitchName(note.pitch)}, ${note.curve.length} points, range plus or minus 2 semitones.`);
 }
 
-function renderDrums(): void {
+function drumWindow(): { start: number; end: number } {
+  const scroll = $('#drum-scroll');
+  const visibleStart = Math.floor(scroll.scrollLeft / DRUM_CELL_W);
+  const visibleEnd = Math.ceil((scroll.scrollLeft + scroll.clientWidth) / DRUM_CELL_W);
+  return {
+    start: Math.max(0, visibleStart - DRUM_STEPS_PER_WINDOW),
+    end: Math.min(totalSteps(project), visibleEnd + DRUM_STEPS_PER_WINDOW),
+  };
+}
+
+function renderDrums(force = false): void {
   const container = $('#drum-grid');
+  const { start, end } = drumWindow();
+  const windowKey = `${project.bars}:${start}:${end}:${playhead}`;
+  if (!force && renderedDrumWindow === windowKey) return;
+  renderedDrumWindow = windowKey;
   container.style.setProperty('--steps', String(totalSteps(project)));
-  const labels = project.drums.map((row, rowIndex) => `<div class="drum-row"><span class="drum-label"><b>${DRUM_NAMES[rowIndex]}</b><small>${rowIndex === 0 ? 'LOW' : rowIndex === 1 ? 'SNAP' : rowIndex === 2 ? 'TICK' : 'AIR'}</small></span><div class="drum-steps">${row.map((active, step) => `<button class="drum-step${active ? ' active' : ''}${step === playhead ? ' playing' : ''}" data-row="${rowIndex}" data-step="${step}" aria-label="${DRUM_NAMES[rowIndex]}, bar ${Math.floor(step / 16) + 1}, step ${step % 16 + 1}${active ? ', on' : ', off'}" aria-pressed="${active}"><span aria-hidden="true"></span></button>`).join('')}</div></div>`).join('');
-  container.innerHTML = `<div class="drum-ruler"><span></span><div>${Array.from({ length: project.bars }, (_, index) => `<span>BAR ${index + 1}</span>`).join('')}</div></div>${labels}`;
+  container.style.width = `${DRUM_LABEL_W + totalSteps(project) * DRUM_CELL_W}px`;
+  const firstBar = Math.floor(start / STEPS_PER_BAR);
+  const lastBar = Math.ceil(end / STEPS_PER_BAR);
+  const ruler = Array.from({ length: lastBar - firstBar }, (_, offset) => {
+    const bar = firstBar + offset;
+    return `<span style="left:${bar * STEPS_PER_BAR * DRUM_CELL_W}px">BAR ${bar + 1}</span>`;
+  }).join('');
+  const labels = project.drums.map((row, rowIndex) => {
+    const steps = row.slice(start, end).map((active, offset) => {
+      const step = start + offset;
+      return `<button class="drum-step${step % 4 === 0 ? ' beat-start' : ''}${active ? ' active' : ''}${step === playhead ? ' playing' : ''}" style="left:${step * DRUM_CELL_W}px" data-row="${rowIndex}" data-step="${step}" aria-label="${DRUM_NAMES[rowIndex]}, bar ${Math.floor(step / 16) + 1}, step ${step % 16 + 1}${active ? ', on' : ', off'}" aria-pressed="${active}"><span aria-hidden="true"></span></button>`;
+    }).join('');
+    return `<div class="drum-row"><span class="drum-label"><b>${DRUM_NAMES[rowIndex]}</b><small>${rowIndex === 0 ? 'LOW' : rowIndex === 1 ? 'SNAP' : rowIndex === 2 ? 'TICK' : 'AIR'}</small></span><div class="drum-steps">${steps}</div></div>`;
+  }).join('');
+  container.innerHTML = `<div class="drum-ruler"><span></span><div>${ruler}</div></div>${labels}`;
 }
 
 function renderAll(): void {
-  drawRuler(); drawRoll(); drawPitch(); renderDrums();
+  drawRuler(); drawRoll(); drawPitch();
   $('#empty-callout').hidden = project.notes.length > 0 || project.drums.some((row) => row.some(Boolean));
 }
 
@@ -352,8 +396,13 @@ pitchCanvas.addEventListener('keydown', (event) => {
 $('#drum-grid').addEventListener('click', (event) => {
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>('.drum-step'); if (!button) return;
   remember(); const row = Number(button.dataset.row); const step = Number(button.dataset.step);
-  project.drums[row]![step] = !project.drums[row]![step]; changed();
+  project.drums[row]![step] = !project.drums[row]![step]; renderedDrumWindow = ''; renderDrums(); changed();
 });
+
+$('#drum-scroll').addEventListener('scroll', () => {
+  if (drumRenderFrame) return;
+  drumRenderFrame = requestAnimationFrame(() => { drumRenderFrame = 0; renderDrums(); });
+}, { passive: true });
 
 engine.onStep = (step) => {
   const previous = playhead;
@@ -379,9 +428,19 @@ titleInput.addEventListener('input', () => { project.title = titleInput.value ||
 tempoInput.addEventListener('change', () => { project.tempo = clamp(Number(tempoInput.value) || 112, 40, 240); tempoInput.value = String(project.tempo); changed(); });
 waveSelect.addEventListener('change', () => { project.wave = waveSelect.value as OscillatorType; changed(); });
 barsInput.addEventListener('change', () => {
-  const next = clamp(Number(barsInput.value) || 16, 1, 64);
-  if (next < project.bars && project.notes.some((note) => note.start >= next * 16) && !confirm(`Shorten to ${next} bars? Notes after bar ${next} will be removed.`)) { barsInput.value = String(project.bars); return; }
-  remember(); project = resizeProject(project, next); selectedId = null; resizeCanvases(); changed();
+  const entered = Number(barsInput.value);
+  const next = normalizeBars(entered, project.bars);
+  const wasNormalized = !Number.isFinite(entered) || entered !== next;
+  if (next < project.bars && project.notes.some((note) => note.start >= next * 16) && !confirm(`Shorten to ${next} bars? Notes after bar ${next} will be removed.`)) { barsInput.value = String(project.bars); barsInput.setCustomValidity(''); barsInput.removeAttribute('aria-invalid'); return; }
+  remember(); project = resizeProject(project, next); selectedId = null; barsInput.value = String(project.bars); barsInput.setCustomValidity(''); barsInput.removeAttribute('aria-invalid'); renderedDrumWindow = ''; resizeCanvases(); changed();
+  if (wasNormalized) announce(`Bars must be from 1 to 64. Using ${project.bars}.`);
+});
+
+barsInput.addEventListener('input', () => {
+  const entered = Number(barsInput.value);
+  const invalid = !Number.isFinite(entered) || entered < 1 || entered > 64;
+  barsInput.setCustomValidity(invalid ? 'Bars must be from 1 to 64.' : '');
+  barsInput.toggleAttribute('aria-invalid', invalid);
 });
 
 $('#reset-pitch').addEventListener('click', () => { const note = project.notes.find((entry) => entry.id === selectedId); if (!note) return; remember(); note.curve = note.curve.map(() => 0); changed(); });
@@ -419,8 +478,26 @@ async function initialize(): Promise<void> {
   } catch { $('#save-state').textContent = 'Local save unavailable — export a backup'; }
   updateFields(); resizeCanvases(); renderAll();
   rollScroll.scrollTop = (MAX_PITCH - 71) * ROW_H;
+  const composer = $('#composer');
+  composer.removeAttribute('inert');
+  composer.setAttribute('aria-busy', 'false');
 }
-void initialize();
+let initializationStarted = false;
+function startInitialize(): void {
+  if (initializationStarted) return;
+  initializationStarted = true;
+  void initialize();
+}
+
+$('#start-sketch').addEventListener('click', startInitialize);
+const composer = $('#composer');
+const initializeWhenApproaching = () => {
+  if (composer.getBoundingClientRect().top >= window.innerHeight * .7) return;
+  window.removeEventListener('scroll', initializeWhenApproaching);
+  startInitialize();
+};
+window.addEventListener('scroll', initializeWhenApproaching, { passive: true });
+initializeWhenApproaching();
 
 if ('serviceWorker' in navigator) {
   let updateRequested = false;
@@ -428,14 +505,11 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
       const registration = await navigator.serviceWorker.register('/sw.js');
-      const showUpdate = (worker: ServiceWorker) => {
+      const showUpdate = (worker: { postMessage(message: unknown): void }) => {
         $('#update-toast').classList.add('visible');
         $('#update-app').onclick = () => { updateRequested = true; worker.postMessage({ type: 'SKIP_WAITING' }); };
       };
-      if (registration.waiting) showUpdate(registration.waiting);
-      registration.addEventListener('updatefound', () => registration.installing?.addEventListener('statechange', () => {
-        if (registration.installing?.state === 'installed' && navigator.serviceWorker.controller) showUpdate(registration.installing);
-      }));
+      watchForServiceWorkerUpdate(registration, () => Boolean(navigator.serviceWorker.controller), showUpdate);
     } catch { $('#connection-status').textContent = 'Local save · offline install unavailable'; }
   });
 }

@@ -1,5 +1,5 @@
-const VERSION = 'songsketch-shell-v1';
-const ASSET_CACHE = 'songsketch-assets-v1';
+const VERSION = 'songsketch-shell-v2';
+const ASSET_CACHE = 'songsketch-assets-v2';
 const CORE = ['/', '/offline.html', '/manifest.webmanifest', '/icons/icon.svg', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/icon-maskable-512.png', '/assets/constellation-console.webp', '/assets/constellation-console-720.webp'];
 
 self.addEventListener('install', (event) => {

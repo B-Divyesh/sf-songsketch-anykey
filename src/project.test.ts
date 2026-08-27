@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createProject, normalizeProject, pitchName, resizeProject, totalSteps } from './project';
+import { createProject, normalizeBars, normalizeProject, pitchName, resizeProject, totalSteps } from './project';
 import { createMidi } from './midi';
 
 describe('project model', () => {
@@ -25,6 +25,17 @@ describe('project model', () => {
     expect(project.tempo).toBe(40);
     expect(project.notes[0]).toMatchObject({ start: 0, length: 1, pitch: 83 });
     expect(pitchName(60)).toBe('C4');
+  });
+
+  it('normalizes bar counts and pitch curves to the advertised editor limits', () => {
+    expect(normalizeBars(0)).toBe(1);
+    expect(normalizeBars(65)).toBe(64);
+    expect(normalizeBars('not a number')).toBe(16);
+    const low = normalizeProject({ bars: 0, notes: [{ start: 0, length: 1, pitch: 60, curve: [-12, 12] }] });
+    const high = normalizeProject({ bars: 65, notes: [{ start: 0, length: 1, pitch: 60, curve: [-12, 12] }] });
+    expect(low.bars).toBe(1);
+    expect(high.bars).toBe(64);
+    expect(low.notes[0]?.curve).toEqual([-2, 2]);
   });
 });
 

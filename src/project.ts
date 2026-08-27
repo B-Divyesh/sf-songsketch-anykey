@@ -27,6 +27,11 @@ export interface Project {
 export const totalSteps = (project: Project) => project.bars * STEPS_PER_BAR;
 export const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
+export function normalizeBars(value: unknown, fallback = 16): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? clamp(Math.round(parsed), 1, 64) : fallback;
+}
+
 export function makeId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `note-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
@@ -48,7 +53,7 @@ export function createProject(): Project {
 export function normalizeProject(input: unknown): Project {
   if (!input || typeof input !== 'object') throw new Error('That file does not contain a SongSketch project.');
   const source = input as Partial<Project>;
-  const bars = clamp(Math.round(Number(source.bars) || 16), 1, 64);
+  const bars = normalizeBars(source.bars);
   const steps = bars * STEPS_PER_BAR;
   const allowedWaves: Wave[] = ['sine', 'square', 'sawtooth', 'triangle'];
   const notes = Array.isArray(source.notes) ? source.notes.flatMap((entry): Note[] => {
@@ -58,7 +63,7 @@ export function normalizeProject(input: unknown): Project {
     const length = clamp(Math.round(Number(note.length) || 1), 1, steps - start);
     const pitch = clamp(Math.round(Number(note.pitch) || 60), MIN_PITCH, MAX_PITCH);
     const curve = Array.isArray(note.curve)
-      ? note.curve.slice(0, 8).map((v) => clamp(Number(v) || 0, -12, 12))
+      ? note.curve.slice(0, 8).map((v) => clamp(Number(v) || 0, -2, 2))
       : [0, 0, 0, 0];
     return [{ id: typeof note.id === 'string' ? note.id : makeId(), start, length, pitch, curve: curve.length > 1 ? curve : [0, 0, 0, 0] }];
   }) : [];
@@ -76,7 +81,7 @@ export function normalizeProject(input: unknown): Project {
 }
 
 export function resizeProject(project: Project, bars: number): Project {
-  const nextBars = clamp(Math.round(bars), 1, 64);
+  const nextBars = normalizeBars(bars, project.bars);
   const steps = nextBars * STEPS_PER_BAR;
   return {
     ...project,
