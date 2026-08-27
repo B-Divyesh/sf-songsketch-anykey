@@ -62,12 +62,12 @@ music app rather than direct Web MIDI device output.
 
 ## Deployment
 
-Deploy the contents of `dist/` as a static site. Serve `sw.js` from the root and
-do not apply a long immutable cache to it. The checked-in `public/_headers`
-emits `Cache-Control: public, max-age=31536000, immutable` for Vite's hashed
-`assets/` files and `no-cache` for the shell and worker. Preserve those rules
-when using another static host. HTTPS is required for service workers outside
-localhost.
+Deploy the contents of `dist/` as a **Standard static** site. Serve `sw.js`
+from the root and do not apply a long immutable cache to it. Preserve both
+emitted header manifests (`_headers` and `staticwebapp.config.json`): they
+cache versioned `assets/` for one year with `immutable`, revalidate the shell
+and worker, and apply the documented response protections. HTTPS is required
+for service workers outside localhost.
 
 ## License
 

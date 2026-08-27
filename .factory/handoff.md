@@ -14,9 +14,10 @@
   windowed to the horizontal viewport instead of rebuilding all bars; and the
   piano-roll grid uses batched canvas paths. The full composer remains local,
   keyboard/touch operable, exportable, and offline-capable after initialization.
-- Added `public/_headers` for Standard static deployment: Vite hashed assets
-  receive `Cache-Control: public, max-age=31536000, immutable`; HTML and
-  `sw.js` receive `no-cache` so updates remain discoverable.
+- Added versioned hero asset names plus Standard-static cache and security
+  configuration. `assets/*` receives `Cache-Control: public, max-age=31536000,
+  immutable`; HTML and `sw.js` are revalidated, and the emitted configuration
+  supplies CSP, Permissions-Policy, nosniff, and frame protections.
 
 ## Regression coverage
 
@@ -36,23 +37,23 @@ npm run build     # passed; dist/ emitted
 npm run test:e2e  # 5 passed (mobile Chromium)
 ```
 
-Three fresh production-preview mobile Lighthouse runs (simulated throttling)
-all passed the requested floor:
+Two fresh production-preview mobile Lighthouse runs (simulated throttling)
+both passed the requested floor:
 
 | Run | Performance | Accessibility | LCP | TBT | CLS |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| 1 | 100 | 100 | 1.3 s | 10 ms | 0 |
-| 2 | 100 | 100 | 1.6 s | 50 ms | 0 |
-| 3 | 100 | 100 | 1.2 s | 30 ms | 0 |
+| 1 | 99 | 100 | 2.05 s | 0 ms | 0 |
+| 2 | 99 | 100 | 2.04 s | 0 ms | 0 |
 
 The production JS is 31.46 KB (11.77 KB gzip), well inside the 200 KB budget.
-`dist/_headers` was confirmed present in the static artifact.
+`dist/_headers` and `dist/staticwebapp.config.json` were confirmed present;
+the latter was checked for immutable assets and non-cacheable `sw.js`.
 
 ## Deployment
 
-Deploy `dist/` as **Standard static**, preserving `dist/_headers`. `sw.js`
-must remain root-served and non-immutable. No infrastructure, DNS, or billing
-settings were changed in this repository.
+Deploy `dist/` as **Standard static**, preserving both header manifests.
+`sw.js` must remain root-served and non-immutable. No infrastructure, DNS, or
+billing settings were changed in this repository.
 
 ## Known gaps
 
