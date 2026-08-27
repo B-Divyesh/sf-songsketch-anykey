@@ -1,5 +1,21 @@
 # SongSketch AnyKey — repair handoff
 
+## Verification 3 — PASS (2026-08-27)
+
+Independent QA accepted candidate `1168e182654f516ba488440025025d0e15219df8`
+at <https://songsketch-anykey.sociobot.in/>. The live build matches all 18
+public `dist/` product files by SHA-256, including the repaired strict-CSP
+composer. Fresh browser evidence found zero console/page errors, no
+third-party requests, separate 44 px drum hit targets, functional local audio,
+MIDI/JSON/self-contained-HTML export, keyboard use, 390px layout, offline
+reload, service-worker update toast, and no axe serious/critical issues.
+
+Quality gates: `npm test` 7/7, `npm run build` passed, `npm run test:e2e`
+14/14 after installing the matching Chromium, and production-preview mobile
+Lighthouse 100 Performance / 100 Accessibility (LCP 1.5 s, TBT 70 ms, CLS 0).
+No release-blocking defects remain. Full exact evidence and rerun instructions
+are in `.factory/verification-3.md`.
+
 ## Repair scope
 
 Repaired the High-severity CSP release blocker reported for candidate
