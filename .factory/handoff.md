@@ -1,4 +1,29 @@
-# SongSketch AnyKey — build handoff
+# SongSketch AnyKey — verification handoff
+
+## Verification verdict: FAIL
+
+Independent QA of candidate `04302a1bbe4e5dc1b7d1d78cc7c75ab7c00fe7a0`
+against <https://songsketch-anykey.sociobot.in/> completed on 2026-08-27.
+The live files are byte-for-byte the candidate, but the candidate is **not
+ready to ship**. See `.factory/verification.md` for full evidence.
+
+Release-blocking defects:
+
+- A changed service worker reaches `waiting` but the promised update toast does
+  not appear, so installed users cannot apply an available update.
+- Entering invalid bar counts leaves an incorrect number visible (`0` or `65`)
+  although the underlying project silently uses 16 or 64 bars.
+- Fresh Lighthouse mobile performance is 85 (target >=90), with 470 ms total
+  blocking time (target <=200 ms).
+- The deployment gives hashed assets only `max-age=30`, not immutable
+  long-lived caching.
+
+The build, unit tests, individually rerun Playwright checks, desktop/mobile axe
+checks, privacy/network checks, MIDI/self-contained HTML export, keyboard,
+offline reload, and live artifact identity otherwise passed. No product code
+was changed by verification.
+
+## Original builder handoff (superseded by verification verdict)
 
 ## What shipped
 
