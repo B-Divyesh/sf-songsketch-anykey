@@ -43,10 +43,25 @@ initial JS is 30.81 KB (11.51 KB gzip) and CSS is 13.50 KB (3.88 KB gzip).
 
 ## Deployment and live evidence
 
-Deploy `dist/` as the existing Azure Static Web App (`sf-songsketch-anykey`),
-preserving `staticwebapp.config.json` and `_headers`. The exact post-deploy
-header, live identity, desktop/mobile CSP-console, and offline checks are
-recorded after the deployment completes.
+Deployed the verified `dist/` from repair commit `e5b186d` to the existing
+Azure Static Web App `sf-songsketch-anykey` on 2026-08-27. The custom domain
+<https://songsketch-anykey.sociobot.in/> now serves the repair.
+
+- SHA-256 matched **18/18** publicly served files between `dist/` and live,
+  including index, worker, manifest, offline/legal pages, icons, hero assets,
+  CSS, and the application bundle. The live application JS hash is
+  `d1dc2c0092debdbbf9c71ddfb1b3668b165392eefa65dbae99012428e9c59fd8`.
+- Live root and worker responses carry the strict CSP, HSTS, nosniff, strict
+  referrer policy, permissions policy, and frame denial. `sw.js` is
+  `no-cache, no-store, must-revalidate`; hashed application JS is
+  `public, max-age=31536000, immutable`.
+- Fresh Chromium checks at 1440x1000 and 390x844 produced **zero console
+  errors** and no off-origin requests. In each viewport, Kick steps 1 and 2
+  measured exactly **44 px** apart (desktop x=146/190; mobile x=130/174), and
+  step 1 toggled to `aria-pressed=true`.
+- The live service worker controlled the page after reload. At 390px, after
+  forcing the browser offline, the full composer reopened and keyboard Enter
+  created a note successfully.
 
 ## Known gaps
 
